@@ -1,6 +1,6 @@
 ### Ex3 
 
-Reflexive agent, because the agent just sends back a message as a result of getting a message without any logical proccessing, reasoning or planning. Static set of instructions.
+Reflexive agent, because the agent just sends back a message as a result of getting a message without any reasoning or planning. Static set of instructions.
 
 --------------------------
 ### Ex5 

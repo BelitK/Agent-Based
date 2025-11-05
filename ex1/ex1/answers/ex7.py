@@ -8,8 +8,7 @@ class ReflexiveAgent(Agent):
     def handle_message(self, content, meta):
         # Reflexive: reacts immediately, no thinking or planning
         print(f"[ReflexiveAgent] got '{content}' from {sender_addr(meta)}")
-        if str(content).lower() == "hello":
-            self.schedule_instant_message("Hi!", sender_addr(meta))
+        self.schedule_instant_message("Hi!", sender_addr(meta))
 
 
 
@@ -47,7 +46,7 @@ async def main():
         # Deliberative reasoning
         deliber.schedule_instant_message("hello", reflex.addr)
 
-        await asyncio.sleep(2.5)
+        await asyncio.sleep(2)
 
 
 if __name__ == "__main__":

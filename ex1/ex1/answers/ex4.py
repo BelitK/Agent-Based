@@ -33,16 +33,15 @@ class FibAgent(Agent):
 
 
 async def main():
-    NMAX = 10  # choose your stop index here (n >= 1). Example: 10 -> stops at f10
+    NMAX = 20  # stop index
 
     container = create_tcp_container(addr=("127.0.0.1", 5555))
 
-    a = container.register(FibAgent("AgentA", NMAX))
-    b = container.register(FibAgent("AgentB", NMAX))
+    a = container.register(FibAgent("Agent1", NMAX))
+    b = container.register(FibAgent("Agent2", NMAX))
 
     async with activate(container):
-        # Kick off with (n=2, a=f1=1, b=f2=1). This prints f2=1 first.
-        # If you want to include n=1 as first print, you can send two seeds or start at n=1.
+        # start of the loop (started from f(2),can be started at n=1.
         a.schedule_instant_message({"n": 2, "a": 1, "b": 1}, b.addr)
 
         # Give the ping-pong a moment to finish
