@@ -37,3 +37,26 @@ For one house, agents are not really needed. A simple control system can handle 
 For many houses selling energy, agents are a good idea. Each house can act on its own, talk to others, and make better decisions together.
 
 In short: one house -> too simple for agents; many houses → agents fit well.
+
+---
+### Ex10 =
+
+Market Agent:
+
+  - Performance measure: Send timely, correct price updates to all houses.
+
+  - Environment: Mango container with connected House agents and a time-varying price generator.
+
+  - Actuators: schedule_instant_message() to broadcast prices.
+
+  - Sensors: self.neighbors() for topology discovery and incoming message metadata.
+
+House Agents (A, B, C, D) :
+
+  - Performance measure: Maximize stored energy and profit (charge when cheap, sell when expensive).
+
+  - Environment: Receive stochastic prices from Market; have local battery state.
+
+  - Actuators: Change mode (CHARGE, SELL, IDLE), update saved_energy.
+
+  - Sensors: Incoming PRICE messages and metadata (price values).
