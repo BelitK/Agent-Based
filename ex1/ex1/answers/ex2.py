@@ -1,4 +1,3 @@
-# Ping-Pong agents with neighour example
 import mango
 import time
 import asyncio
