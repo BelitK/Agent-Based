@@ -10,7 +10,7 @@ class SampleAgent(mango.Agent):
         self.neighbors_list: list[mango.AgentAddress]= []
 
     def on_ready(self):
-        print(f"[{self.aid}] Agent is ready and connected to the topology.")
+        print(f"[{self.aid}] Agent is ready.")
         for neighbor in self.neighbors_list:
             self.schedule_instant_message("Hi", neighbor)
 

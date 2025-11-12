@@ -1,92 +1,67 @@
-# ring_small_world_manual.py
+# smallworld_ring_lattice.py
 # pip install mango-agents
-import asyncio
-from typing import Any, Iterable, List
 
+import asyncio
+from typing import Any, Iterable
 from mango import Agent, run_with_tcp
 
 
-K_PER_SIDE = 2   # neighbors on each side (k = 2 => degree 4)
-N_WORKERS = 10   # number of agents
-BETA = 0.0       # rewiring probability (0.0 => no random edges, pure lattice)
-
-
 class WorkerAgent(Agent):
-    """
-    Receives:
-      - {"type": "NEIGHBORHOOD", "neighbor_addrs": [AgentAddress, ...]}
-      - {"type": "ID", "from": aid}
-    After NEIGHBORHOOD:
-      - cache neighbor addresses
-      - broadcast my ID to neighbors
-    Sync:
-      - got_neighborhood, got_all_ids events
-    """
     def __init__(self, name: str):
         super().__init__()
         self.name = name
-        self._neighbor_addrs: List[Any] = []
-        self.expected_neighbors: int = 0
+        self._neighbor_addrs = []
         self.received_ids: set[str] = set()
-        self.got_neighborhood = asyncio.Event()
-        self.got_all_ids = asyncio.Event()
 
     def handle_message(self, content: Any, meta: dict[str, Any]):
-        mtype = content.get("type")
-        if mtype == "NEIGHBORHOOD":
-            neighbor_addrs: Iterable[Any] = content["neighbor_addrs"]
-            self._neighbor_addrs = list(neighbor_addrs)
-            self.expected_neighbors = len(self._neighbor_addrs)
-
-            self.got_neighborhood.set()
-
+        if content.get("type") == "NEIGHBORHOOD":
+            self._neighbor_addrs = list(content["neighbor_addrs"])
             for naddr in self._neighbor_addrs:
                 self.schedule_instant_message({"type": "ID", "from": self.aid}, naddr)
-
-        elif mtype == "ID":
+        elif content.get("type") == "ID":
             self.received_ids.add(content["from"])
-            if self.expected_neighbors and len(self.received_ids) >= self.expected_neighbors:
-                self.got_all_ids.set()
 
 
 class TopologyAgent(Agent):
     """
-    Builds a small-world ring-lattice by hand:
-      for each i, neighbors are i±1, i±2, ..., i±K_PER_SIDE (mod N)
-    Random factor BETA is 0.0 here, so no rewiring is applied.
+    Builds a k-regular ring lattice (With p=0).
+    k must be even. For k=2, this is the plain ring.
     """
-    def __init__(self, workers: list[WorkerAgent]):
+    def __init__(self, workers: list[WorkerAgent], k: int = 2):
         super().__init__()
+        assert k % 2 == 0 and k >= 2, "k must be an even integer >= 2"
         self.workers = workers
+        self.k = k
 
     def on_ready(self):
+        n = len(self.workers)
         addrs = [w.addr for w in self.workers]
-        n = len(addrs)
+        half = self.k // 2  # neighbors on each side
 
         for i, w in enumerate(self.workers):
-            neighbors_idx = set()
-            for offset in range(1, K_PER_SIDE + 1):
-                neighbors_idx.add((i - offset) % n)
-                neighbors_idx.add((i + offset) % n)
-
-            neighbor_addrs = [addrs[j] for j in sorted(neighbors_idx)]
+            # Collect 1..half neighbors on both sides (p=0, so no rewiring)
+            neighbors = []
+            for d in range(1, half + 1):
+                neighbors.append(addrs[(i - d) % n])  # left d
+                neighbors.append(addrs[(i + d) % n])  # right d
             self.schedule_instant_message(
-                {"type": "NEIGHBORHOOD", "neighbor_addrs": neighbor_addrs},
+                {"type": "NEIGHBORHOOD", "neighbor_addrs": neighbors},
                 w.addr,
             )
 
 
 async def main():
-    workers = [WorkerAgent(f"worker_{i}") for i in range(N_WORKERS)]
-    topo = TopologyAgent(workers)
+    workers = [WorkerAgent(f"worker_{i}") for i in range(10)]
 
-    async with run_with_tcp(1, *workers, topo):
-        await asyncio.gather(*(w.got_neighborhood.wait() for w in workers))
-        await asyncio.gather(*(w.got_all_ids.wait() for w in workers))
+    # Set k=2 for plain ring; try k=4 for extra shortcuts to second neighbors.
+    topo_agent = TopologyAgent(workers, k=2)
 
-        print("Received IDs per agent:")
-        for w in workers:
-            print(f"{w.aid}: {sorted(w.received_ids)}")
+    async with run_with_tcp(1, *workers, topo_agent):
+        await asyncio.sleep(0.2)
+
+    print("Received IDs per agent:")
+    for w in workers:
+        print(f"{w.aid}: {sorted(w.received_ids)}")
 
 
 if __name__ == "__main__":

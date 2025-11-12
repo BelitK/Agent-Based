@@ -1,11 +1,10 @@
-# ring_per_node.py
-# pip install mango-agents networkx
+# ring_manual_topology.py
+# pip install mango-agents
 
 import asyncio
-import networkx as nx
 from typing import Any, Iterable
 
-from mango import Agent, run_with_tcp, custom_topology, per_node
+from mango import Agent, run_with_tcp
 
 
 class WorkerAgent(Agent):
@@ -22,10 +21,10 @@ class WorkerAgent(Agent):
     def handle_message(self, content: Any, meta: dict[str, Any]):
         mtype = content.get("type")
         if mtype == "NEIGHBORHOOD":
-            neighbor_aids: Iterable[str] = content["neighbor_aids"]
-            # Map AIDs to AgentAddress via the topology-populated neighbors()
-            by_aid = {addr.aid: addr for addr in self.neighbors()}
-            self._neighbor_addrs = [by_aid[aid] for aid in neighbor_aids if aid in by_aid]
+            # TopologyAgent sends actual neighbor addresses, so we can use them directly
+            neighbor_addrs: Iterable = content["neighbor_addrs"]
+            self._neighbor_addrs = list(neighbor_addrs)
+
             # Broadcast my ID to neighbors
             for naddr in self._neighbor_addrs:
                 self.schedule_instant_message({"type": "ID", "from": self.aid}, naddr)
@@ -36,41 +35,37 @@ class WorkerAgent(Agent):
 
 class TopologyAgent(Agent):
     """
-    On startup, announce each worker's neighborhood based on the ring topology.
+    On startup, compute a ring over the workers and send each its neighbors.
+    No NetworkX, topology is defined manually here.
     """
     def __init__(self, workers: list[WorkerAgent]):
         super().__init__()
         self.workers = workers
 
     def on_ready(self):
-        # neighbors() is already set by the topology API
-        for w in self.workers:
-            neighbor_aids = [addr.aid for addr in w.neighbors()]
+        n = len(self.workers)
+        # Build a ring: each i has neighbors (i-1) mod n and (i+1) mod n
+        addrs = [w.addr for w in self.workers]
+        for i, w in enumerate(self.workers):
+            left = addrs[(i - 1) % n]
+            right = addrs[(i + 1) % n]
+            neighbor_addrs = [left, right]
             self.schedule_instant_message(
-                {"type": "NEIGHBORHOOD", "neighbor_aids": neighbor_aids},
+                {"type": "NEIGHBORHOOD", "neighbor_addrs": neighbor_addrs},
                 w.addr,
             )
 
 
 async def main():
-    # Make a 10-node ring graph
-    G = nx.cycle_graph(10)
+    # Create 10 workers
+    workers: list[WorkerAgent] = [WorkerAgent(f"worker_{i}") for i in range(10)]
 
-    # Turn it into a mango topology without create_topology()
-    topology = custom_topology(G)  # build from a networkx graph
-    workers: list[WorkerAgent] = []
-
-    # Add one WorkerAgent per node
-    for i, node in enumerate(per_node(topology)):
-        w = WorkerAgent(f"worker_{i}")
-        node.add(w)
-        workers.append(w)
-
-    # Add the topology announcer
+    # Create the topology announcer
     topo_agent = TopologyAgent(workers)
 
     # Run the system
     async with run_with_tcp(1, *workers, topo_agent):
+        # Give time for neighborhood setup and broadcasts
         await asyncio.sleep(0.2)
 
     # Show what each worker received

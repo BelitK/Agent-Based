@@ -1,6 +1,6 @@
 ## Ex3:
 
-I implemented neighbors data as a list of 2, first one is the one to the left then right for 2 neighbors.
+Each agent stores its neighborhood in a list called self._neighbor_addrs
 
 ## Ex5:
 
@@ -16,3 +16,26 @@ The small-world topology sends more messages than the simple ring:
 
 You’d need to make the topology fully connected, meaning every agent is a neighbor of every other agent.
 In practice, the topology agent would send each agent a neighborhood list containing all other agents’ addresses, so when they broadcast their IDs, everyone receives them.
+
+## Ex9
+
+Coordinator strategy:
+In this approach, each queen is a QueenAgent, and one CoordinatorAgent oversees them all. The coordinator manages communication and ensures that no two queens threaten each other.
+
+How it works:
+
+Each QueenAgent proposes a column to the coordinator.
+
+The CoordinatorAgent checks for conflicts (same column or diagonal).
+
+If conflicts exist, it tells specific queens to move.
+
+The process repeats until all queens are safe.
+
+Why it works:
+
+- The coordinator prevents random or conflicting moves.
+
+- Communication stays organized and efficient.
+
+- The system reaches a stable, conflict-free solution faster.
